@@ -1,6 +1,7 @@
 #include <iostream>
 
 int main(int argc, char const *argv[]) {
-    std::cout << "Hi there!" << std::endl;
+    auto lambda = [](auto x, auto y) {return x + y;};
+    std::cout << "Hi there! It's " << lambda(1, 3) << " here." << std::endl;
     return 0;
 }
