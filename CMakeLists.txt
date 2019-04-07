@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.10)
 
 project(mark)
-#set(CMAKE_CXX_STANDARD 14)
-#set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(SOURCES 
 		main.cpp 
-		pipe.c)
+		pipe.c
+		curl_pipe.cpp)
 set(HEADERS 
-		pip.h)
+		pip.h
+		curl_pipe.h)
 
 add_executable(mark ${SOURCES})
 

@@ -20,6 +20,7 @@ extern "C" {
 struct pipe_context {
     FILE *handle;
     int error;
+    int code;
     int is_open;
 };
 
@@ -38,13 +39,13 @@ pipe_finit(
 char * 
 pipe_read(
     struct pipe_context *desc,
-    char *str, 
+    char *s, 
     int size);
 
 int  
 pipe_write(
     struct pipe_context *desc,
-    const char *str);
+    const char *s);
 
 #ifdef __cplusplus
 }
