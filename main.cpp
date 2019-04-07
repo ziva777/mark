@@ -6,7 +6,7 @@
 #include <codecvt>
 #include <sstream>
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 #include "curl_pipe.h"
 
@@ -51,39 +51,35 @@ StrFilter::_to_lower(
     std::string &data,
     std::string locale_name)
 {
-    using namespace std;
-
-    locale utf8_loc(locale_name);
-    wstring_convert<
-        codecvt_utf8<wchar_t>
+    std::locale utf8_loc(locale_name);
+    std::wstring_convert<
+        std::codecvt_utf8<wchar_t>
     > conv;
-    wstring ws = conv.from_bytes(data);
+    std::wstring ws = conv.from_bytes(data);
 
-    transform(
+    std::transform(
         ws.begin(), ws.end(),
         ws.begin(),
         [&](wchar_t c) {
-            return (wchar_t)tolower(c, utf8_loc);
+            return (wchar_t)std::tolower(c, utf8_loc);
         }
     );
 
     data = conv.to_bytes(ws);
 }
 
-using Histogram = std::map<std::string, size_t>;
+using Histogram = std::unordered_map<std::string, size_t>;
 
 void 
 fill_histogram(
     Histogram &histogram,
     std::string &data)
 {
-    using namespace std;
-
-    istringstream iss{data};
-    vector<string> 
+    std::istringstream iss{data};
+    std::vector<std::string> 
         results(
-            istream_iterator<string>{iss},
-            istream_iterator<string>());
+            std::istream_iterator<std::string>{iss},
+            std::istream_iterator<std::string>());
 
     for (auto &&item : results) {
         histogram[item] += 1;

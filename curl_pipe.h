@@ -10,6 +10,8 @@
     Class to read curl output via pipe.
 */
 
+#define STATIC_IO_BUFFER
+
 class CurlPipe {
 public:
     enum class ResultCodes {
@@ -27,8 +29,8 @@ public:
 
 private:
     static const int IO_BUFF_SIZE;
-    static const std::string CURL_CMD;
-    static const std::string CURL_ARG;
+    static const char CURL_CMD[];
+    static const char CURL_ARG[];
 
     std::string _build_url(std::string url);
 };

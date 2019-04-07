@@ -1,8 +1,8 @@
 #include "curl_pipe.h"
 
 const int CurlPipe::IO_BUFF_SIZE = 1024;
-const std::string CurlPipe::CURL_CMD = "curl";
-const std::string CurlPipe::CURL_ARG = "-s";
+const char CurlPipe::CURL_CMD[] = "curl";
+const char CurlPipe::CURL_ARG[] = "-s";
 
 
 CurlPipe::CurlPipe()
@@ -17,12 +17,15 @@ CurlPipe::Values
 CurlPipe::get(
     std::string url)
 {
-    struct pipe_context pipe;
+#   ifdef STATIC_IO_BUFFER
+    static
+#   endif
+    char buff[IO_BUFF_SIZE];
+
+    pipe_context pipe;
     ResultCodes code;
     std::string data;
-    char buff[IO_BUFF_SIZE];
     std::string cmd = _build_url(url);
-
 
     if (pipe_init(&pipe, cmd.c_str(), PIPE_MODE_R)) {
         while (pipe_read(&pipe, buff, IO_BUFF_SIZE)) {
@@ -48,8 +51,8 @@ CurlPipe::_build_url(
     std::string url)
 {
     std::string cmd;
-    cmd += CURL_CMD + " ";
-    cmd += CURL_ARG + " ";
+    cmd += std::string(CURL_CMD) + " ";
+    cmd += std::string(CURL_ARG) + " ";
     cmd += url + " ";
     return cmd;
 }
