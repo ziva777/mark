@@ -5,11 +5,33 @@
 #include <locale>
 #include <codecvt>
 
-
 #include "curl_pipe.h"
 
+
+class StrFilter {
+public:
+    void process(
+            std::string &data,
+            std::string locale_name);
+private:
+    void _remove_punct(std::string &data);
+    void _to_lower(
+            std::string &data,
+            std::string locale_name);
+};
+
+
 void 
-remove_punct(
+StrFilter::process(
+    std::string &data,
+    std::string locale_name)
+{
+    _remove_punct(data);
+    _to_lower(data, locale_name);
+}
+
+void 
+StrFilter::_remove_punct(
     std::string &data)
 {
     std::replace_if(
@@ -21,7 +43,7 @@ remove_punct(
 }
 
 void 
-to_lower(
+StrFilter::_to_lower(
     std::string &data,
     std::string locale_name)
 {
@@ -44,27 +66,18 @@ to_lower(
     data = conv.to_bytes(ws);
 }
 
-void 
-beautify_str(
-    std::string &data,
-    std::string locale_name)
-{
-    remove_punct(data);
-    to_lower(data, locale_name);
-}
 
 int main()
 {
     CurlPipe pipe;
     CurlPipe::ResultCodes code;
     std::string data;
+    StrFilter filter;
 
     std::tie(code, data) = pipe.get("file:///Users/ziva/Desktop/dub.txt");
-
-    beautify_str(data, "ru_RU.UTF-8");
+    filter.process(data, "ru_RU.UTF-8");
 
     std::cout << data;
-
 
     return EXIT_SUCCESS;
 }
