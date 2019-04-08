@@ -4,7 +4,7 @@ project(mark)
 
 set(SOURCES 
 		main.cpp 
-		pipe.c
+		pipe.cpp
 		curl_pipe.cpp)
 set(HEADERS 
 		pip.h
