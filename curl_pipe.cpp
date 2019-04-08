@@ -22,25 +22,25 @@ CurlPipe::get(
 #   endif
     char buff[IO_BUFF_SIZE];
 
-    pipe_context pipe;
-    ResultCodes code;
-    std::string data;
     std::string cmd = _build_url(url);
+    std::string data;
+    ResultCode code;
+    Pipe pipe;
 
-    if (pipe_init(&pipe, cmd.c_str(), PIPE_MODE_R)) {
-        while (pipe_read(&pipe, buff, IO_BUFF_SIZE)) {
+    if (pipe.open(cmd)) {
+        while (pipe.read(buff, IO_BUFF_SIZE)) {
             data.append(buff);
         }
 
-        pipe_finit(&pipe);
+        pipe.close();
 
-        if (pipe.code == 0) {
-            code = ResultCodes::OK;
+        if (pipe.is_success()) {
+            code = ResultCode::OK;
         } else {
-            code = ResultCodes::READ_FAIL;
+            code = ResultCode::READ_FAIL;
         }
     } else {
-        code = ResultCodes::OPEN_FAIL;
+        code = ResultCode::OPEN_FAIL;
     }
 
     return std::make_tuple(code, data);

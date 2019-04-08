@@ -6,6 +6,7 @@
 #include <codecvt>
 #include <sstream>
 #include <vector>
+#include <iterator>
 #include <unordered_map>
 
 #include "curl_pipe.h"
@@ -75,22 +76,6 @@ fill_histogram(
     Histogram &histogram,
     std::string &data)
 {
-    std::istringstream iss{data};
-    std::vector<std::string> 
-        results(
-            std::istream_iterator<std::string>{iss},
-            std::istream_iterator<std::string>());
-
-    for (auto &&item : results) {
-        histogram[item] += 1;
-    }
-}
-
-void 
-fill_histogram2(
-    Histogram &histogram,
-    std::string &data)
-{
     std::istringstream iss(std::move(data));
 
     for (auto itr = std::istream_iterator<std::string>{iss};
@@ -99,34 +84,28 @@ fill_histogram2(
     {
         auto res = histogram.emplace(std::move(*itr), 0);
         auto item = res.first;
-        auto exists = res.second;
 
-        if (!exists)
-            ++item->second;
-        
-        // std::istream_iterator<std::string> item;
-        // bool created;
-        // std::tie(item, created) = res;
-        // std::tie(item, created) = histogram.emplace(std::move(*itr), 0);
-        // auto [item, created] = histogram.emplace(std::move(*itr), 0);
-
-        // if (!created) {
-            // ++item->second;
-        // }
+        ++item->second;
     }
 }
 
 int main()
 {
     CurlPipe pipe;
-    CurlPipe::ResultCodes code;
+    CurlPipe::ResultCode code;
     std::string data;
     StrFilter filter;
     Histogram histogram;
 
-    std::tie(code, data) = pipe.get("file:///Users/ziva/Desktop/dub.txt");
+    std::tie(code, data) = 
+        pipe.get(
+            "file:///home/marina/programming/git/mark/case0.txt");
     filter.process(data, "ru_RU.UTF-8");
-    fill_histogram2(histogram, data);
+    fill_histogram(histogram, data);
+
+    /*std::tie(code, data) = pipe.get("file:///Users/ziva/Desktop/dub.txt");
+    filter.process(data, "ru_RU.UTF-8");
+    fill_histogram2(histogram, data);*/
 
     /*std::tie(code, data) = pipe.get("file:///Users/ziva/Desktop/belkin.txt");
     filter.process(data, "ru_RU.UTF-8");
@@ -135,10 +114,11 @@ int main()
     {
         size_t i = 0;
         for (auto const &x : histogram) {
-            std::cout
-                << ++i << " - " 
-                << x.first << ':' << x.second
-                << std::endl;
+            // if (x.second > 1)
+                std::cout
+                    << ++i << " - " 
+                    << x.first << ":\t" << x.second
+                    << std::endl;
         }
     }
 

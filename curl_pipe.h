@@ -14,11 +14,11 @@
 
 class CurlPipe {
 public:
-    enum class ResultCodes {
+    enum class ResultCode {
         OK, OPEN_FAIL, READ_FAIL 
     };
     using Values = std::tuple<
-        ResultCodes, 
+        ResultCode, 
         std::string
     >;
 

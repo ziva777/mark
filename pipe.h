@@ -1,54 +1,38 @@
 #ifndef __pipe_h__
 #define __pipe_h__
 
-/*
-    Since popen is system C call leave it in pure C.
-*/
+#include <string>
 
-#include <stdio.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+class Pipe {
+public:
+    enum class Mode {
+        R, W
+    };
 
-#define PIPE_MODE_R      "r"
-#define PIPE_MODE_W      "W"
-#define PIPE_MODE_RW     "r+"
+    Pipe();
+    ~Pipe();
 
-/* Pipe descriptor */
+    int error() const { return _error; }
+    int code() const { return _code; }
+    bool is_open() const { return _pipe; }
+    bool is_success() const { return _code == 0; }
 
-struct pipe_context {
-    FILE *handle;
-    int error;
-    int code;
-    int is_open;
+    bool open(
+        std::string cmd, 
+        Mode mode = Mode::R);
+    void close();
+
+    char * read(
+        char *buff, 
+        int size);
+    int write(
+        const char *buff);
+private:
+    FILE *_pipe {nullptr};
+    int _error {0};
+    int _code {0};
 };
 
-/* Pipe functions */
-
-int  
-pipe_init(
-    struct pipe_context *desc,
-    const char *cmd, 
-    const char *mode);
-
-void 
-pipe_finit(
-    struct pipe_context *desc);
-
-char * 
-pipe_read(
-    struct pipe_context *desc,
-    char *s, 
-    int size);
-
-int  
-pipe_write(
-    struct pipe_context *desc,
-    const char *s);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* __pipe_h__ */
