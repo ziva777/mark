@@ -86,6 +86,36 @@ fill_histogram(
     }
 }
 
+void 
+fill_histogram2(
+    Histogram &histogram,
+    std::string &data)
+{
+    std::istringstream iss(std::move(data));
+
+    for (auto itr = std::istream_iterator<std::string>{iss};
+        itr != std::istream_iterator<std::string>();
+        ++itr) 
+    {
+        auto res = histogram.emplace(std::move(*itr), 0);
+        auto item = res.first;
+        auto exists = res.second;
+
+        if (!exists)
+            ++item->second;
+        
+        // std::istream_iterator<std::string> item;
+        // bool created;
+        // std::tie(item, created) = res;
+        // std::tie(item, created) = histogram.emplace(std::move(*itr), 0);
+        // auto [item, created] = histogram.emplace(std::move(*itr), 0);
+
+        // if (!created) {
+            // ++item->second;
+        // }
+    }
+}
+
 int main()
 {
     CurlPipe pipe;
@@ -96,7 +126,7 @@ int main()
 
     std::tie(code, data) = pipe.get("file:///Users/ziva/Desktop/dub.txt");
     filter.process(data, "ru_RU.UTF-8");
-    fill_histogram(histogram, data);
+    fill_histogram2(histogram, data);
 
     /*std::tie(code, data) = pipe.get("file:///Users/ziva/Desktop/belkin.txt");
     filter.process(data, "ru_RU.UTF-8");
