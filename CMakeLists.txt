@@ -5,10 +5,12 @@ project(mark)
 set(SOURCES 
 		main.cpp 
 		pipe.cpp
-		curl_pipe.cpp)
+		curl_pipe.cpp
+		str_filter.cpp)
 set(HEADERS 
 		pip.h
-		curl_pipe.h)
+		curl_pipe.h
+		str_filter.h)
 
 add_executable(mark ${SOURCES})
 

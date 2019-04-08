@@ -12,6 +12,7 @@
 
 #define STATIC_IO_BUFFER
 
+
 class CurlPipe {
 public:
     enum class ResultCode {
