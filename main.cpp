@@ -88,9 +88,16 @@ public:
             <token, count>, ...
         ], ...
     */
+    using Transition = std::tuple<
+        Window, 
+        size_t
+    >;
+    using Transitions = std::list<
+        Transition
+    >;
     using Automat = std::unordered_map<
         Window,
-        std::tuple<Window, size_t>,
+        Transitions,
         WindowHash
     >;
 
@@ -184,33 +191,86 @@ MarkovModel::train(
         throw std::logic_error("Order of model more than corpus!");
     }
 
-    for (auto &token : tokens) {
-        for (auto &word : token)
-            std::cout << word << " ";
-        std::cout << std::endl;
-    }
+    // for (auto &token : tokens) {
+    //     for (auto &word : token)
+    //         std::cout << word << " ";
+    //     std::cout << std::endl;
+    // }
 
     {
         TokensItr begin = tokens.begin();
         TokensItr end = tokens.end();
         TokensItr itr1, itr2;
 
-        // _automat.clear();
+        for (itr1 = begin; itr1 != end; ++itr1) {
+            Transitions &trs = _automat[*itr1];
 
-        // itr1 = begin;
-        // itr2 = begin;
-        // ++itr2;
+            if (++(itr2 = itr1) != end) {
+                bool match = false;
 
-        // for (itr1 = begin; itr1 != end; ++itr1) {
+                for (auto &tr : trs) {
+                    Window &tr_window = std::get<0>(tr);
+                    size_t &count = std::get<1>(tr);
 
-        // }
+                    if (tr_window == *itr2) {
+                        ++count;
+                        match = true;
+                        break;
+                    }
+                }
+
+                if (!match) {
+                    trs.emplace_back(
+                        std::make_tuple(*itr2, 1)
+                    );
+                }
+            }
+        }
+    }
+
+    {
+        /* Print out automat */
+        auto str_sum = [](
+            const std::string &a,
+            const std::string &b
+        ) {
+            if (a.empty())
+                return b;
+            return a + ',' + b;
+        };
+
+
+        for (auto &item : _automat) {
+            auto &w_key = item.first;
+            auto &values = item.second;
+
+            std::string k = std::accumulate(
+                w_key.begin(), w_key.end(), std::string(),
+                str_sum
+            );
+            std::string v;
+            {
+                for (auto &value : values) {
+                    auto &window = std::get<0>(value);
+                    auto count = std::get<1>(value);
+                    v = std::accumulate(
+                        window.begin(), window.end(), v,
+                        str_sum
+                    );
+                    v += ":" + std::to_string(count);
+                }
+            }
+
+            std::cout << "[" << k << "] : <" << v << ">";
+            std::cout << std::endl;
+        }
     }
 }
 
 int main()
 {
     const char locale[] = "ru_RU.UTF-8";
-    const size_t order = 2;
+    const size_t order = 1;
     CurlPipe::ResultCode code;
     CurlPipe pipe;
     std::string data;
@@ -228,15 +288,15 @@ int main()
         throw std::domain_error("Can't read file: " + file);
     }
 
-    file = "file:///home/marina/programming/git/mark/case1.txt";
-    std::tie(code, data) = pipe.get(file);
+    // file = "file:///home/marina/programming/git/mark/case1.txt";
+    // std::tie(code, data) = pipe.get(file);
 
-    if (code == CurlPipe::ResultCode::OK) {
-        filter.process(data, locale);
-        markov.train(std::move(data));
-    } else {
-        throw std::domain_error("Can't read file: " + file);
-    }
+    // if (code == CurlPipe::ResultCode::OK) {
+    //     filter.process(data, locale);
+    //     markov.train(std::move(data));
+    // } else {
+    //     throw std::domain_error("Can't read file: " + file);
+    // }
 
     // Histogram histogram;
     // fill_histogram(histogram, std::move(data));
