@@ -5,7 +5,10 @@
 
 #include <sstream>
 #include <iterator>
+#include <numeric>
 #include <unordered_map>
+#include <stdexcept>
+#include <tuple>
 
 #include "curl_pipe.h"
 #include "str_filter.h"
@@ -52,164 +55,156 @@ fill_histogram(
 }
 
 
-class MarkovChain {
+class MarkovModel {
 public:
-    using Chain = std::vector<std::string>;
+    using Atom = std::string;
+    using Corpus = std::list<Atom>;
+    using Window = std::list<Atom>;
+    using Tokens = std::list<Window>;
 
-    MarkovChain(
+    using CorpusItr = Corpus::iterator;
+    using WindowItr = Window::iterator;
+    using TokensItr = Tokens::iterator;
+
+    struct WindowHash {
+        size_t operator()(const Window &w) const {
+            auto str_sum = [](
+                const std::string &a,
+                const std::string &b
+            ) {
+                return a + '_' + b;
+            };
+            std::string s = std::accumulate(
+                w.begin(), w.end(), std::string(),
+                str_sum
+            );
+            return std::hash<std::string>()(s);
+        };
+    };
+
+    /*
+        token : [
+            <token, count>,
+            <token, count>, ...
+        ], ...
+    */
+    using Automat = std::unordered_map<
+        Window,
+        std::tuple<Window, size_t>,
+        WindowHash
+    >;
+
+    MarkovModel(
         size_t order = 1);
 
-    void train(std::string &&data);
-    bool load(std::string file);
-    bool save(std::string file);
-
-    Chain random_seq();
-    Chain generate_seq(Chain &seq, size_t n);
+    void train(
+        std::string &&data);
+    bool load(
+        std::string file);
+    bool save(
+        std::string file);
 
 private:
     size_t _order;
+    Automat _automat;
+
+    Corpus _make_corpus(
+        std::string &&data);
+    Tokens _make_tokens(
+        Corpus &&corpus,
+        size_t window_size);
 };
 
-MarkovChain::MarkovChain(
+MarkovModel::MarkovModel(
     size_t order)
 : _order{order}
 {
 }
 
-void 
-MarkovChain::train(
+/* [1, 2, ,3 ,4] -> [[1, 2], [2, 3], [3, 4]] */
+MarkovModel::Tokens
+MarkovModel::_make_tokens(
+    Corpus &&corpus,
+    size_t window_size)
+{
+    using Tokens = std::list<
+        std::list<std::string>
+    >;
+    using Corpus = std::list<
+        std::string
+    >;
+    using Chunk = std::list<
+        std::string
+    >;
+
+    Tokens tokens;
+    Corpus::iterator begin = corpus.begin();
+    Corpus::iterator end = corpus.end();
+    Corpus::iterator itr1, itr2;
+    size_t i;
+
+    for (itr1 = begin; itr1 != end; ++itr1) {
+        Chunk chunk;
+
+        for (itr2 = itr1, i = 0; itr2 != end && i != window_size; ++itr2, ++i) {
+            chunk.emplace_back(*itr2);
+        }
+
+        tokens.emplace_back(std::move(chunk));
+    }
+
+    corpus.clear();
+    return tokens;
+}
+
+MarkovModel::Corpus  
+MarkovModel::_make_corpus(
     std::string &&data)
 {
-    // using StreamIter = std::istream_iterator<std::string>;
-    // using MoveStreamIter = std::move_iterator<StreamIter>;
-    // using Tokens = std::list<std::string>;
-    // using TokensIter = Tokens::iterator;
+    using Iss = std::istringstream;
+    using IssIter = std::istream_iterator<std::string>;
 
-    // std::istringstream iss(std::move(data));
-    // StreamIter begin{iss}, end;
-    // Tokens tokens;
+    Iss iss(std::move(data));
+    return Corpus(std::make_move_iterator(IssIter{iss}),
+                  std::make_move_iterator(IssIter()));
+}
 
-    // /*std::copy(
-    //     MoveIter(begin),
-    //     MoveIter(end),
-    //     tokens.begin()
-    // );*/
+void 
+MarkovModel::train(
+    std::string &&data)
+{
+    Corpus corpus = _make_corpus(std::move(data));
+    Tokens tokens = _make_tokens(std::move(corpus), _order);
 
-    // TokensIter itr1, itr2, itr3;
+    if (tokens.empty()) {
+        throw std::logic_error("Corpus is empty, nothin' to learn!");
+    }
 
-    // for (itr1 = begin; itr1 != end; ++itr) {
-    //     tokens.emplace_back(*itr);
-    // }
+    if (tokens.begin()->size() < _order) {
+        throw std::logic_error("Order of model more than corpus!");
+    }
 
-    // for (auto &token : tokens) {
-    //     std::cout << token << " ";
-    // }
-    // std::cout << std::endl;
+    for (auto &token : tokens) {
+        for (auto &word : token)
+            std::cout << word << " ";
+        std::cout << std::endl;
+    }
 
-    // for (auto itr1 = tokens.begin(); itr != tokens.end(); ++itr1) {
+    {
+        TokensItr begin = tokens.begin();
+        TokensItr end = tokens.end();
+        TokensItr itr1, itr2;
 
-    // }
+        // _automat.clear();
 
-    // for (itr; itr != end; ++itr) {
-    // }
+        // itr1 = begin;
+        // itr2 = begin;
+        // ++itr2;
 
-    // using Iter = std::istream_iterator<std::string>;
+        // for (itr1 = begin; itr1 != end; ++itr1) {
 
-    // std::istringstream iss(std::move(data));
-    // Iter itr{iss}, end;
-    // Chain window;
-    // size_t i = 0;
-
-    // // fill the window
-    // while (i++ != _order && itr != end)
-    //     window.emplace_back(*itr++);
-
-    // if (i != _order) {
-    //     // Nothin' to learn
-    //     return;
-    // }
-
-    // for (size_t j = 0; j != _order; ++j) {
-    //     std::cout << window[j] << " ";
-    // }
-    
-    // if (itr != end)
-    //     std::cout << "->" << *itr << std::endl;
-    // else
-    //     std::cout << "->" << "$" << std::endl;
-
-    // while (itr != end) {
-    //     for (size_t j = 1; j < _order; ++j) {
-    //         window[j-1] = window[j];
-    //     }
-
-    //     window[_order-1] = *itr++;
-
-    //     for (size_t j = 0; j != _order; ++j) {
-    //         std::cout << window[j] << " ";
-    //     }
-
-    //     if (itr != end)
-    //         std::cout << "->" << *itr << std::endl;
-    //     else
-    //         std::cout << "->" << "$" << std::endl;
-    // }
-
-    // std::istringstream iss(std::move(data));
-    // Iter itr_up{iss}, itr_down, end;
-    // Iter itr;
-    // bool up = true;
-    // size_t i = 0;
-
-    // for (itr_up; itr_up != end; ++itr_up) {
-    //     std::cout << *itr_up << " ";
-    // }
-    // std::cout << "\n";
-
-    // for (itr_down; itr_down != end; ++itr_down) {
-    //     std::cout << *itr_down << " ";
-    // }
-    // std::cout << "\n";
-    
-    /*for (; itr_up != end && itr_down != end; (up ? ++itr_up : ++itr_down)) {
-        itr = (up ? itr_up : itr_down);
-        i = 0;
-
-        for (itr; itr != end && i != _order; ++itr, ++i) {
-            std::cout << *itr << " ";
-        }
-        std::cout << "\n";      
-
-        up = !up;
-    }*/
-    // Iter begin{iss}, end;
-    // Iter itr, itr2, itr3;
-
-    // for (itr = begin; itr != end; ++itr) {
-    //     // std::cout << *itr << "\n";
-    //     // Chain key(_order);
-    //     // std::string value = "$";
-    //     size_t i = 0;
-
-    //     for (itr2 = itr; itr2 != end /*&& i != _order*/; ++itr2, ++i) {
-    //         std::cout << *itr2 << " ";
-    //     //     key[i] = *itr2;
-    //     }
-    //     std::cout << "\n";
-
-    //     // // itr3 = 
-
-    //     // if (itr2 != end) {
-    //     //     itr3 = itr2;
-    //     //     if (itr3 != end) {
-    //     //         value = *itr3;
-    //     //     }
-    //     // }
-
-
-    //     // std::cout << " -> " << value << "\n";
-        
-    // }
+        // }
+    }
 }
 
 int main()
@@ -219,45 +214,42 @@ int main()
     CurlPipe::ResultCode code;
     CurlPipe pipe;
     std::string data;
+    std::string file;
     StrFilter filter;
-    Histogram histogram;
-    MarkovChain markov(order);
+    MarkovModel markov(order);
 
-    std::tie(code, data) = 
-        pipe.get(
-            "file:///home/marina/programming/git/mark/case0.txt");
-    filter.process(data, locale);
-    markov.train(std::move(data));
-    // fill_histogram(histogram, std::move(data));
+    file = "file:///home/marina/programming/git/mark/case0.txt";
+    std::tie(code, data) = pipe.get(file);
 
-    // std::tie(code, data) = 
-    //     pipe.get(
-    //         "file:///home/marina/programming/git/mark/case1.txt");
-    // filter.process(data, locale);
-    // fill_histogram(histogram, std::move(data));
-
-    /*std::tie(code, data) = 
-        pipe.get(
-            "file:///Users/ziva/Desktop/dub.txt");
-    filter.process(data, locale);
-    fill_histogram(histogram, data);*/
-
-    /*std::tie(code, data) = 
-        pipe.get(
-            "file:///Users/ziva/Desktop/belkin.txt");
-    filter.process(data, locale);
-    fill_histogram(histogram, data);*/
-    
-    {
-        size_t i = 0;
-        for (auto const &x : histogram) {
-            // if (x.second > 1)
-                std::cout
-                    << ++i << " - " 
-                    << x.first << ":\t" << x.second
-                    << std::endl;
-        }
+    if (code == CurlPipe::ResultCode::OK) {
+        filter.process(data, locale);
+        markov.train(std::move(data));
+    } else {
+        throw std::domain_error("Can't read file: " + file);
     }
+
+    file = "file:///home/marina/programming/git/mark/case1.txt";
+    std::tie(code, data) = pipe.get(file);
+
+    if (code == CurlPipe::ResultCode::OK) {
+        filter.process(data, locale);
+        markov.train(std::move(data));
+    } else {
+        throw std::domain_error("Can't read file: " + file);
+    }
+
+    // Histogram histogram;
+    // fill_histogram(histogram, std::move(data));
+    // {
+    //     size_t i = 0;
+    //     for (auto const &x : histogram) {
+    //         // if (x.second > 1)
+    //             std::cout
+    //                 << ++i << " - " 
+    //                 << x.first << ":\t" << x.second
+    //                 << std::endl;
+    //     }
+    // }
 
     return EXIT_SUCCESS;
 }

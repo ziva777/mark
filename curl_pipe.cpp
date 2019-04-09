@@ -3,6 +3,7 @@
 const int CurlPipe::IO_BUFF_SIZE = 1024;
 const char CurlPipe::CURL_CMD[] = "curl";
 const char CurlPipe::CURL_ARG[] = "-s";
+const char CurlPipe::CURL_CONV[] = "";
 
 
 CurlPipe::CurlPipe()
@@ -54,5 +55,6 @@ CurlPipe::_build_url(
     cmd += std::string(CURL_CMD) + " ";
     cmd += std::string(CURL_ARG) + " ";
     cmd += url + " ";
+    cmd += std::string(CURL_CONV) + " ";
     return cmd;
 }

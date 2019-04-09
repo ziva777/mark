@@ -32,6 +32,7 @@ private:
     static const int IO_BUFF_SIZE;
     static const char CURL_CMD[];
     static const char CURL_ARG[];
+    static const char CURL_CONV[];
 
     std::string _build_url(std::string url);
 };
