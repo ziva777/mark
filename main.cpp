@@ -55,6 +55,75 @@ fill_histogram(
 }
 
 
+class MarkovAutomat {
+public:
+    struct StateHash;
+
+    static const int STATE_ID = 0;
+    static const int PROBABILITY_ID = 1;
+    static const int CONTER_ID = 2;
+
+    using Atom = std::string;
+    using State = std::list<Atom>;
+    using Transition = std::tuple<
+        State,  // next state
+        float,  // probability
+        size_t  // counter
+    >;
+    using Transitions = std::list<
+        Transition
+    >;
+    using AutomatCore = std::unordered_map<
+        State,
+        Transitions,
+        StateHash
+    >;
+
+    struct StateHash {
+        size_t operator()(const State &state) const {
+            std::string s = std::accumulate(
+                state.begin(), state.end(), std::string(),
+                [](
+                    const std::string &a,
+                    const std::string &b
+                ) {
+                    return a + '_' + b;
+                }
+            );
+            return std::hash<std::string>()(s);
+        };
+    };
+
+    // AutomatCore::iterator add_state(
+    //     State &&state,
+    //     Transitions &&transitions);
+
+    Transitions & transitions(
+        State &state);
+
+private:
+    AutomatCore _automat_core;
+};
+
+// MarkovAutomat::AutomatCore::iterator 
+// MarkovAutomat::add_state(
+//     MarkovAutomat::State &&state, 
+//     MarkovAutomat::Transitions &&transitions) 
+// {
+//     auto res = _automat_core.emplace(std::move(state), 
+//                                      std::move(transitions));
+//     auto item = res.first;
+//     return (res.first);
+// }
+
+MarkovAutomat::Transitions & 
+MarkovAutomat::transitions(
+        MarkovAutomat::State &state)
+{
+    return _automat_core[state];
+}
+
+
 class MarkovModel {
 public:
     using Atom = std::string;
@@ -88,6 +157,9 @@ public:
             <token, count>, ...
         ], ...
     */
+    static const int NEXT_STATE_ID = 0;
+    static const int NEXT_PROBABILITY_ID = 1;
+
     using Transition = std::tuple<
         Window, 
         size_t
@@ -109,11 +181,14 @@ public:
     bool load(
         std::string file);
     bool save(
-        std::string file);
+        std::string file) const;
+
+    void print() const;
 
 private:
     size_t _order;
     Automat _automat;
+    MarkovAutomat _markov_automat;
 
     Corpus _make_corpus(
         std::string &&data);
@@ -134,33 +209,25 @@ MarkovModel::_make_tokens(
     Corpus &&corpus,
     size_t window_size)
 {
-    using Tokens = std::list<
-        std::list<std::string>
-    >;
-    using Corpus = std::list<
-        std::string
-    >;
-    using Chunk = std::list<
-        std::string
-    >;
-
-    Tokens tokens;
     Corpus::iterator begin = corpus.begin();
     Corpus::iterator end = corpus.end();
     Corpus::iterator itr1, itr2;
+    Tokens tokens;
     size_t i;
 
     for (itr1 = begin; itr1 != end; ++itr1) {
-        Chunk chunk;
+        Corpus chunk;
 
-        for (itr2 = itr1, i = 0; itr2 != end && i != window_size; ++itr2, ++i) {
+        for (itr2 = itr1, i = 0; 
+            itr2 != end && i != window_size; 
+            ++itr2, ++i) 
+        {
             chunk.emplace_back(*itr2);
         }
 
         tokens.emplace_back(std::move(chunk));
     }
 
-    corpus.clear();
     return tokens;
 }
 
@@ -203,6 +270,42 @@ MarkovModel::train(
         TokensItr itr1, itr2;
 
         for (itr1 = begin; itr1 != end; ++itr1) {
+            auto &state = *itr1;
+            auto &transitions = _markov_automat.transitions(state);
+
+            if (++(itr2 = itr1) != end) {
+                if (transitions.empty()) {
+                    transitions.emplace_back(
+                        std::make_tuple(*itr2, 1.0f, 1));
+                } else {
+                    for (auto &tr : transitions) {
+                        MarkovAutomat::State &next_state = 
+                            std::get<MarkovAutomat::STATE_ID>(tr);
+                        
+
+                        if (next_state == *itr2) {
+                            size_t &counter = 
+                                std::get<MarkovAutomat::CONTER_ID>(tr);
+                            float &prob =
+                                std::get<MarkovAutomat::PROBABILITY_ID>(tr);
+
+                            ++counter;
+                            /* recalc prob */
+                            
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    {
+        TokensItr begin = tokens.begin();
+        TokensItr end = tokens.end();
+        TokensItr itr1, itr2;
+
+        for (itr1 = begin; itr1 != end; ++itr1) {
             Transitions &trs = _automat[*itr1];
 
             if (++(itr2 = itr1) != end) {
@@ -227,43 +330,45 @@ MarkovModel::train(
             }
         }
     }
+}
 
-    {
-        /* Print out automat */
-        auto str_sum = [](
-            const std::string &a,
-            const std::string &b
-        ) {
-            if (a.empty())
-                return b;
-            return a + ',' + b;
-        };
+void 
+MarkovModel::print() const
+{
+    /* Print out automat */
+    auto str_sum = [](
+        const std::string &a,
+        const std::string &b
+    ) {
+        if (a.empty())
+            return b;
+        return a + ',' + b;
+    };
 
 
-        for (auto &item : _automat) {
-            auto &w_key = item.first;
-            auto &values = item.second;
+    for (auto &item : _automat) {
+        auto &w_key = item.first;
+        auto &values = item.second;
 
-            std::string k = std::accumulate(
-                w_key.begin(), w_key.end(), std::string(),
-                str_sum
-            );
-            std::string v;
-            {
-                for (auto &value : values) {
-                    auto &window = std::get<0>(value);
-                    auto count = std::get<1>(value);
-                    v = std::accumulate(
-                        window.begin(), window.end(), v,
-                        str_sum
-                    );
-                    v += ":" + std::to_string(count);
-                }
+        std::string k = std::accumulate(
+            w_key.begin(), w_key.end(), std::string(),
+            str_sum
+        );
+        std::string v;
+        {
+            for (auto &value : values) {
+                auto &window = std::get<0>(value);
+                auto count = std::get<1>(value);
+                v = std::accumulate(
+                    window.begin(), window.end(), v,
+                    str_sum
+                );
+                v += ":" + std::to_string(count);
             }
-
-            std::cout << "[" << k << "] : <" << v << ">";
-            std::cout << std::endl;
         }
+
+        std::cout << "[" << k << "] : <" << v << ">";
+        std::cout << std::endl;
     }
 }
 
@@ -287,6 +392,8 @@ int main()
     } else {
         throw std::domain_error("Can't read file: " + file);
     }
+
+    markov.print();
 
     // file = "file:///home/marina/programming/git/mark/case1.txt";
     // std::tie(code, data) = pipe.get(file);
