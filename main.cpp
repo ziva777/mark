@@ -101,6 +101,8 @@ public:
     Transitions & transitions(
         State &state);
 
+    void print() const;
+
 private:
     AutomatCore _automat_core;
 };
@@ -121,6 +123,45 @@ MarkovAutomat::transitions(
         MarkovAutomat::State &state)
 {
     return _automat_core[state];
+}
+
+void 
+MarkovAutomat::print() const
+{
+    /* Print out automat */
+    auto str_sum = [](
+        const std::string &a,
+        const std::string &b
+    ) {
+        if (a.empty())
+            return b;
+        return a + ',' + b;
+    };
+
+
+    for (auto &item : _automat_core) {
+        auto &state = item.first;
+        auto &transitions = item.second;
+
+        std::string k = std::accumulate(
+            state.begin(), state.end(), std::string(),
+            str_sum
+        );
+
+        std::string v;
+        for (auto &transition : transitions) {
+            auto &next_state = std::get<STATE_ID>(transition);
+            auto &count = std::get<CONTER_ID>(transition);
+            v = std::accumulate(
+                next_state.begin(), next_state.end(), v,
+                str_sum
+            );
+            v += ":" + std::to_string(count);
+        }
+
+        std::cout << "[" << k << "] : <" << v << ">";
+        std::cout << std::endl;
+    }
 }
 
 
@@ -274,103 +315,33 @@ MarkovModel::train(
             auto &transitions = _markov_automat.transitions(state);
 
             if (++(itr2 = itr1) != end) {
-                if (transitions.empty()) {
-                    transitions.emplace_back(
-                        std::make_tuple(*itr2, 1.0f, 1));
-                } else {
-                    for (auto &tr : transitions) {
-                        MarkovAutomat::State &next_state = 
-                            std::get<MarkovAutomat::STATE_ID>(tr);
-                        
-
-                        if (next_state == *itr2) {
-                            size_t &counter = 
-                                std::get<MarkovAutomat::CONTER_ID>(tr);
-                            float &prob =
-                                std::get<MarkovAutomat::PROBABILITY_ID>(tr);
-
-                            ++counter;
-                            /* recalc prob */
-                            
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    {
-        TokensItr begin = tokens.begin();
-        TokensItr end = tokens.end();
-        TokensItr itr1, itr2;
-
-        for (itr1 = begin; itr1 != end; ++itr1) {
-            Transitions &trs = _automat[*itr1];
-
-            if (++(itr2 = itr1) != end) {
                 bool match = false;
 
-                for (auto &tr : trs) {
-                    Window &tr_window = std::get<0>(tr);
-                    size_t &count = std::get<1>(tr);
+                for (auto &tr : transitions) {
+                    MarkovAutomat::State &next_state = 
+                        std::get<MarkovAutomat::STATE_ID>(tr);
+                    
+                    if (next_state == *itr2) {
+                        size_t &counter = 
+                            std::get<MarkovAutomat::CONTER_ID>(tr);
 
-                    if (tr_window == *itr2) {
-                        ++count;
+                        ++counter;
                         match = true;
                         break;
                     }
                 }
 
                 if (!match) {
-                    trs.emplace_back(
-                        std::make_tuple(*itr2, 1)
-                    );
+                    transitions.emplace_back(
+                        std::make_tuple(*itr2, 0.0f, 1)); 
                 }
             }
         }
+
+        _markov_automat.print();
     }
 }
 
-void 
-MarkovModel::print() const
-{
-    /* Print out automat */
-    auto str_sum = [](
-        const std::string &a,
-        const std::string &b
-    ) {
-        if (a.empty())
-            return b;
-        return a + ',' + b;
-    };
-
-
-    for (auto &item : _automat) {
-        auto &w_key = item.first;
-        auto &values = item.second;
-
-        std::string k = std::accumulate(
-            w_key.begin(), w_key.end(), std::string(),
-            str_sum
-        );
-        std::string v;
-        {
-            for (auto &value : values) {
-                auto &window = std::get<0>(value);
-                auto count = std::get<1>(value);
-                v = std::accumulate(
-                    window.begin(), window.end(), v,
-                    str_sum
-                );
-                v += ":" + std::to_string(count);
-            }
-        }
-
-        std::cout << "[" << k << "] : <" << v << ">";
-        std::cout << std::endl;
-    }
-}
 
 int main()
 {
