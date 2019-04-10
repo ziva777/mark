@@ -9,6 +9,9 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <tuple>
+#include <random>
+#include <ctime>
+#include <cstdlib>
 
 #include "curl_pipe.h"
 #include "str_filter.h"
@@ -67,7 +70,7 @@ public:
     using State = std::list<Atom>;
     using Transition = std::tuple<
         State,  // next state
-        float,  // probability
+        float,  // probability of transition
         size_t  // counter
     >;
     using Transitions = std::list<
@@ -80,7 +83,8 @@ public:
     >;
 
     struct StateHash {
-        size_t operator()(const State &state) const {
+        size_t operator()(const State &state) const 
+        {
             std::string s = std::accumulate(
                 state.begin(), state.end(), std::string(),
                 [](
@@ -95,10 +99,14 @@ public:
     };
 
     Transitions & transitions(
-        State &state);
+            State &state);
 
     void print() const;
     void cals_transitions_probs();
+
+    std::string genarate(
+            State origin,
+            size_t n) const;
 
 private:
     AutomatCore _automat_core;
@@ -124,14 +132,6 @@ MarkovAutomat::print() const
             return b;
         return a + "," + b;
     };
-    auto str_sum2 = [](
-        const std::string &a,
-        const std::string &b
-    ) {
-        if (a.empty())
-            return b;
-        return a + "," + b;
-    };
 
     for (auto &item : _automat_core) {
         auto &state = item.first;
@@ -150,7 +150,7 @@ MarkovAutomat::print() const
 
             v = std::accumulate(
                 next_state.begin(), next_state.end(), v,
-                str_sum2
+                str_sum
             );
             v += ":" + std::to_string(count);
             v += ":" + std::to_string(prob);
@@ -178,107 +178,119 @@ MarkovAutomat::cals_transitions_probs()
     }
 }
 
-
-class MarkovModel {
-public:
-    using Atom = std::string;
-    using Corpus = std::list<Atom>;
-    using Window = std::list<Atom>;
-    using Tokens = std::list<Window>;
-
-    using CorpusItr = Corpus::iterator;
-    using WindowItr = Window::iterator;
-    using TokensItr = Tokens::iterator;
-
-    struct WindowHash {
-        size_t operator()(const Window &w) const {
-            auto str_sum = [](
-                const std::string &a,
-                const std::string &b
-            ) {
-                return a + '_' + b;
-            };
-            std::string s = std::accumulate(
-                w.begin(), w.end(), std::string(),
-                str_sum
-            );
-            return std::hash<std::string>()(s);
-        };
+std::string 
+MarkovAutomat::genarate(
+    MarkovAutomat::State origin,
+    size_t n) const
+{
+    auto str_sum = [](
+        const std::string &a,
+        const std::string &b
+    ) {
+        if (a.empty())
+            return b;
+        return a + " " + b;
     };
 
-    /*
-        token : [
-            <token, count>,
-            <token, count>, ...
-        ], ...
-    */
-    static const int NEXT_STATE_ID = 0;
-    static const int NEXT_PROBABILITY_ID = 1;
+    bool stop = false;
 
-    using Transition = std::tuple<
-        Window, 
-        size_t
-    >;
-    using Transitions = std::list<
-        Transition
-    >;
-    using Automat = std::unordered_map<
-        Window,
-        Transitions,
-        WindowHash
-    >;
+    while (n-- && !stop) {
+        bool goon = true;
 
-    MarkovModel(
-        size_t order = 1);
+        for (auto itr = _automat_core.begin(); 
+            itr != _automat_core.end() && goon; 
+            ++itr)
+        {
+            auto &item = *itr;
+            auto &state = item.first;
+            auto &transitions = item.second;
 
-    void 
-    train(
-        std::string &&data);
-    bool 
-    load(
-        std::string file);
-    bool 
-    save(
-        std::string file) const;
+            if (origin == state) {
+                std::cout <<
+                    std::accumulate(
+                        state.begin(), state.end(), std::string(),
+                        str_sum)
+                    << " ";
 
-    void 
-    print() const;
+                if (!transitions.empty()) {
+                    size_t tr_idx = rand() % transitions.size();
+                    auto tr_itr = transitions.begin();
+
+                    while (tr_idx--) {
+                        ++tr_itr;
+                    }
+
+                    origin = std::get<STATE_ID>(*tr_itr);
+                    goon = false;
+                } else {
+                    goon = false;
+                    stop = true;
+                }
+            }
+        }
+    }
+
+    std::string res;
+    return res;
+}
+
+
+class MarkovModelTrainer {
+public:
+    using Atom = MarkovAutomat::Atom;
+    using Corpus = std::list<Atom>;
+    using CorpusItr = Corpus::iterator;
+    using Tokens = std::list<MarkovAutomat::State>;
+    using TokensItr = Tokens::iterator;
+
+    MarkovModelTrainer(
+            size_t order = 1);
+
+    void train(
+            std::string &&data,
+            MarkovAutomat &markov_automat);
+    // bool load(
+    //         std::string file);
+    // bool save(
+    //         std::string file) const;
+    // void print() const;
+
+    // std::string genarate(
+    //         MarkovAutomat::State origin,
+    //         size_t n) const;
 
 private:
     size_t _order;
-    Automat _automat;
-    MarkovAutomat _markov_automat;
+    // MarkovAutomat _markov_automat;
 
-    Corpus 
-    _make_corpus(
-        std::string &&data);
-    Tokens 
-    _make_tokens(
-        Corpus &&corpus,
-        size_t window_size);
+    Corpus _make_corpus(
+            std::string &&data);
+    Tokens _make_tokens(
+            Corpus &&corpus,
+            size_t window_size);
 
     template<typename TOKENS_ITERATOR>
-    void 
-    _make_train(
-        TOKENS_ITERATOR begin,
-        TOKENS_ITERATOR end);
+    void _make_train(
+            TOKENS_ITERATOR begin,
+            TOKENS_ITERATOR end,
+            MarkovAutomat &markov_automat);
 };
 
-MarkovModel::MarkovModel(
+MarkovModelTrainer::MarkovModelTrainer(
     size_t order)
 : _order{order}
 {
 }
 
 /* [1, 2, ,3 ,4] -> [[1, 2], [2, 3], [3, 4]] */
-MarkovModel::Tokens
-MarkovModel::_make_tokens(
+MarkovModelTrainer::Tokens
+MarkovModelTrainer::_make_tokens(
     Corpus &&corpus,
     size_t window_size)
 {
-    Corpus::iterator begin = corpus.begin();
-    Corpus::iterator end = corpus.end();
-    Corpus::iterator itr1, itr2;
+    CorpusItr begin = corpus.begin();
+    CorpusItr end = corpus.end();
+    CorpusItr itr1, itr2;
     Tokens tokens;
     size_t i;
 
@@ -298,8 +310,8 @@ MarkovModel::_make_tokens(
     return tokens;
 }
 
-MarkovModel::Corpus  
-MarkovModel::_make_corpus(
+MarkovModelTrainer::Corpus  
+MarkovModelTrainer::_make_corpus(
     std::string &&data)
 {
     using Iss = std::istringstream;
@@ -312,15 +324,16 @@ MarkovModel::_make_corpus(
 
 template<typename TOKENS_ITERATOR>
 void 
-MarkovModel::_make_train(
+MarkovModelTrainer::_make_train(
     TOKENS_ITERATOR begin,
-    TOKENS_ITERATOR end)
+    TOKENS_ITERATOR end,
+    MarkovAutomat &markov_automat)
 {
     TOKENS_ITERATOR itr1, itr2;
 
     for (itr1 = begin; itr1 != end; ++itr1) {
         auto &state = *itr1;
-        auto &transitions = _markov_automat.transitions(state);
+        auto &transitions = markov_automat.transitions(state);
 
         if (++(itr2 = itr1) != end) {
             bool match = false;
@@ -346,12 +359,13 @@ MarkovModel::_make_train(
         }
     }
 
-    _markov_automat.cals_transitions_probs();
+    markov_automat.cals_transitions_probs();
 }
 
 void 
-MarkovModel::train(
-    std::string &&data)
+MarkovModelTrainer::train(
+    std::string &&data,
+    MarkovAutomat &markov_automat)
 {
     Corpus corpus = _make_corpus(std::move(data));
     Tokens tokens = _make_tokens(std::move(corpus), _order);
@@ -364,20 +378,23 @@ MarkovModel::train(
         throw std::logic_error("Order of model more than corpus!");
     }
 
-    // for (auto &token : tokens) {
-    //     for (auto &word : token)
-    //         std::cout << word << " ";
-    //     std::cout << std::endl;
-    // }
-
-    _make_train(tokens.begin(), tokens.end());
+    _make_train(tokens.begin(), tokens.end(), markov_automat);
 }
 
-void 
-MarkovModel::print() const
-{
-    _markov_automat.print();
-}
+// void 
+// MarkovModelTrainer::print() const
+// {
+//     _markov_automat.print();
+// }
+
+// std::string 
+// MarkovModelTrainer::genarate(
+//     MarkovAutomat::State &origin,
+//     size_t n) 
+// {
+//     return ";"
+//     // return _markov_automat.genarate(origin, n);
+// }
 
 
 int main()
@@ -389,19 +406,25 @@ int main()
     std::string data;
     std::string file;
     StrFilter filter;
-    MarkovModel markov(order);
+    MarkovModelTrainer markov(order);
+    MarkovAutomat markov_automat;
+
+    std::srand(std::time(nullptr));
 
     file = "file:///home/marina/programming/git/mark/case0.txt";
     std::tie(code, data) = pipe.get(file);
 
     if (code == CurlPipe::ResultCode::OK) {
         filter.process(data, locale);
-        markov.train(std::move(data));
+        markov.train(std::move(data), markov_automat);
     } else {
         throw std::domain_error("Can't read file: " + file);
     }
 
-    markov.print();
+    markov_automat.print();
+
+    MarkovAutomat::State s{{"one"}};
+    std::cout << markov_automat.genarate(s, 10) << std::endl;
 
     // file = "file:///home/marina/programming/git/mark/case1.txt";
     // std::tie(code, data) = pipe.get(file);
