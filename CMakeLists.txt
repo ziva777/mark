@@ -8,6 +8,7 @@ set(SOURCES
 		curl_pipe.cpp
 		str_filter.cpp)
 set(HEADERS 
+		aux.h
 		pip.h
 		curl_pipe.h
 		str_filter.h)
