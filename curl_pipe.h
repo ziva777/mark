@@ -26,7 +26,8 @@ public:
     CurlPipe();
     ~CurlPipe();
 
-    Values get(std::string url);
+    Values 
+    get(std::string url);
 
 private:
     static const int IO_BUFF_SIZE;

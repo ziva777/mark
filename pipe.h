@@ -18,15 +18,19 @@ public:
     bool is_open() const { return _pipe; }
     bool is_success() const { return _code == 0; }
 
-    bool open(
+    bool 
+    open(
         std::string cmd, 
         Mode mode = Mode::R);
-    void close();
+    void 
+    close();
 
-    char * read(
+    char * 
+    read(
         char *buff, 
         int size);
-    int write(
+    int 
+    write(
         const char *buff);
 private:
     FILE *_pipe {nullptr};
